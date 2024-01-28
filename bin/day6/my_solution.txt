@@ -1,0 +1,112 @@
+use std::collections::{HashSet, HashMap};
+#[derive(Debug, Clone)]
+struct Coord {
+    start: (i32, i32),
+    area: HashSet<(i32, i32)>,
+    temp: HashSet<(i32, i32)>,
+    infinite: bool,
+}
+
+#[derive(Debug, Clone)]
+struct Grid {
+    coord: Vec<Coord>,
+    seen: HashSet<(i32, i32)>,
+    check: HashMap<(i32, i32), u32>,
+    borders: (i32, i32, i32, i32),
+}
+
+impl Grid {
+    fn mark_infinite(&mut self) {
+        let (min_x, max_x, min_y, max_y) = self.borders;
+        for coord in self.coord.iter_mut() {
+            for point in &coord.area {
+                if point.0 == min_x || point.0 == max_x || point.1 == min_y || point.1 == max_y {
+                    coord.infinite = true;
+                    break; // Once marked as infinite, no need to check further points
+                }
+            }
+        }
+    }
+
+    fn points_at_md(&mut self, distance: i32, idx: usize) {
+        for dx in -distance..=distance {
+            let dy = distance - dx.abs();
+            let x = self.coord[idx].start.0;
+            let y = self.coord[idx].start.1;
+            if !self.seen.contains(&(x + dx, y + dy)) {
+                self.coord[idx].temp.insert((x + dx, y + dy));
+                *self.check.entry((x + dx, y + dy)).or_insert(0) += 1;
+            }
+            if dy != 0 && !self.seen.contains(&(x + dx, y - dy)) {
+                self.coord[idx].temp.insert((x + dx, y - dy));
+                *self.check.entry((x + dx, y - dy)).or_insert(0) += 1;
+            }
+        }
+    }
+
+    fn sort_temp(&mut self) {
+        let crossed: Vec<(i32, i32)> = self.check.iter().filter(|(_, &v)| v > 1).map(|(&k, _)| k).collect();
+
+        for coord in self.coord.iter_mut() {
+            for point in &coord.temp {
+                if !crossed.contains(point) {
+                    coord.area.insert(*point);
+                    self.seen.insert(*point);
+                }
+            }
+            coord.temp.clear();
+        }
+        self.check.clear();
+    }
+
+    fn largest_area(&self) -> usize {
+        self.coord.iter().filter(|coord| !coord.infinite).map(|coord| coord.area.len()).max().unwrap_or(0)
+    }
+}
+fn parse(input: &str) -> (Vec<Coord>, (i32, i32, i32, i32)) {
+    let mut coords = Vec::new();
+    let mut xs = Vec::new();
+    let mut ys = Vec::new();
+    for line in input.lines() {
+        let values: Vec<i32> = line.trim().split(", ").filter_map(|c| c.parse().ok()).collect();
+        xs.push(values[0]);
+        ys.push(values[1]);
+        let (x, y) = (values[0], values[1]);
+        let mut set = HashSet::new();
+        set.insert((x, y));
+        let coord = Coord {
+            start: (x, y),
+            area: set,
+            temp: HashSet::new(),
+            infinite: false,
+        };
+        coords.push(coord);
+    }
+    let x_max = *xs.iter().max().unwrap();
+    let x_min = *xs.iter().min().unwrap();
+    let y_max = *ys.iter().max().unwrap();
+    let y_min = *ys.iter().min().unwrap();
+    (coords, (x_min, x_max, y_min, y_max))
+}
+fn part1(input: &str) -> usize {
+    let (coords, borders) = parse(input);
+    let seen: HashSet<(i32, i32)> = coords.clone().into_iter().flat_map(|point| point.area).collect();
+    let mut grid = Grid {
+        coord: coords,
+        seen: seen,
+        check: HashMap::new(),
+        borders,
+    };
+    for m in 1..=100 {
+        for idx in 0..grid.coord.len() {
+            grid.points_at_md(m, idx);
+        }
+        grid.sort_temp();
+    }
+    grid.mark_infinite();
+    grid.largest_area()
+}
+fn main() {
+    let input = include_str!("input6.txt");
+    println!("{}", part1(input));
+}

@@ -1,0 +1,15 @@
+// This is not my solution
+
+use std::collections::BTreeSet;
+fn main() {
+    let d = include_str!("input2.txt");
+    let result: String = (0..).find_map(|k| match_at_k(d, k)).unwrap();
+    println!("{}", result);
+}
+fn match_at_k(d: &str, k: usize) -> Option<String> {
+    let mut bt = BTreeSet::new();
+    d
+    .lines()
+    .map(|a| String::from(&a[0..k])+&a[k+1..])
+    .find(|s: &String| !bt.insert(s.clone()))
+}
